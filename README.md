@@ -3,7 +3,7 @@
 This package includes:
 - plot_from_inputs.py
 - experiment_runner.py
-- data/
+- data_all/
 
 Usage:
 1. Run experiment:
