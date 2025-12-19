@@ -1,154 +1,171 @@
-# Failure to Mix: LLM Probability Calibration
+# Failure to Mix: Large Language Models Struggle to Answer According to Desired Probability Distributions
 
-**Code repository for the paper:** *"Failure to Mix: A Fundamental Limitation of Large Language Models in Executing Probabilistic Tasks"*
+This repository contains the code and data for reproducing all experiments and figures in the paper:
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+> **Failure to Mix: Large Language Models Struggle to Answer According to Desired Probability Distributions**  
+> Ivy Yuqian Yang, David Yu Zhang  
+> Biostate AI, Houston, TX
 
-## Overview
+## Abstract
 
-This repository contains code to reproduce all experiments in the "Failure to Mix" paper, which demonstrates that large language models exhibit a characteristic "step-like" response pattern when asked to execute probabilistic tasks like simulating biased coin flips.
-
-### Key Finding
-
-When asked to flip a biased coin returning "1" with probability p%, LLMs do not output "1" at rate r ≈ p%. Instead, they exhibit a sigmoid/step-like response:
-- For p < 50%: r ≈ 0% (almost always output "0")
-- For p > 50%: r ≈ 100% (almost always output "1")
-- Transition occurs sharply around p = 50%
-
-We quantify this with the **Step-likeness metric S**:
-- S = 0: Perfect calibration (r = p for all p)
-- S = 1: Perfect step function
-- Observed: S ≈ 0.8-0.95 for most models
-
-## Installation
-
-```bash
-# Clone repository
-git clone https://github.com/BiostateAIresearch/failure-to-mix.git
-cd failure-to-mix
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Set API key
-export OPENROUTER_API_KEY="your-key-here"
-```
-
-## Quick Start
-
-```bash
-# Run single flip experiment on Gemini
-python scripts/run_experiments.py --model google/gemini-2.5-pro --exp 1
-
-# Run all experiments on GPT-5
-python scripts/run_experiments.py --model openai/gpt-5 --all
-
-# Run with custom trial count
-python scripts/run_experiments.py --model anthropic/claude-4.5-sonnet --exp 1 2 --n 500
-```
-
-## Experiments
-
-| Experiment | Figure | Description |
-|------------|--------|-------------|
-| `exp1` | Fig 1 | Single coin flip with varying p |
-| `exp2` | Fig 2 | Two sequential flips (compensation analysis) |
-| `exp3` | Fig 3 | D=10 flip ensemble (binomial distribution) |
-| `exp4` | Fig 4 | Ternary distribution (0/1/2) |
-| `exp5` | Fig 5 | Word choice and position bias |
-| `exp6` | Fig 6 | Game theory mixed strategies |
+Scientific idea generation and selection requires exploration following a target probability distribution. In contrast, current AI benchmarks have objectively correct answers, and training large language models (LLMs) via reinforcement learning against these benchmarks discourages probabilistic exploration. Here, we conducted systematic experiments requesting LLMs to produce outputs following simple probabilistic distributions, and found that all modern LLMs tested grossly fail to follow the distributions. For example, requesting a binary output of "1" 49% of the time produces an answer of "0" nearly 100% of the time. This step function-like behavior of near-exclusively generating the output with marginally highest probability even overrules strong in-built LLM biases.
 
 ## Repository Structure
 
 ```
 failure-to-mix/
-├── src/                      # Core library
-│   ├── api_caller.py        # Async API with rate limiting
-│   ├── config.py            # Configuration and prompts
-│   ├── metrics.py           # S metric, KL divergence
-│   ├── parsers.py           # Response extraction
-│   ├── plotting.py          # Visualization utilities
-│   └── drive_uploader.py    # Google Drive integration
-├── experiments/              # Experiment implementations
-│   ├── exp1_single_flip.py  # Figure 1
-│   ├── exp2_two_flips.py    # Figure 2
-│   ├── exp4_ternary.py      # Figure 4
-│   ├── exp5_word_bias.py    # Figure 5
-│   └── exp6_game_theory.py  # Figure 6
-├── scripts/
-│   ├── run_experiments.py   # Main CLI
-│   └── generate_figures.py  # Paper figure generation
-├── data/                     # Raw experimental data
-├── figures/                  # Generated figures
-└── notebooks/                # Jupyter notebooks
-```
-
-## Step-likeness Metric (S)
-
-The key metric for measuring calibration quality:
-
-```python
-from src.metrics import compute_S
-
-# p_values: target probabilities (%)
-# r_values: observed response rates (%)
-S = compute_S(p_values, r_values)
-
-# S = 0: Perfect calibration
-# S = 1: Perfect step function
-```
-
-**Formula:**
-```
-S = 4 × ∫₀¹ |r(p) - p| dp
+├── data/                          # Raw experimental data
+│   ├── fig1_single_flip.csv       # Figure 1: Single flip (8 models)
+│   ├── fig2_*.csv                 # Figure 2: Sequential flips D=2,3
+│   ├── fig3_*.csv                 # Figure 3: D=10 ensemble
+│   ├── fig4_ternary.csv           # Figure 4: Ternary distribution
+│   ├── fig5_word_bias.csv         # Figure 5: Word bias experiments
+│   └── fig6_*.csv                 # Figure 6: Game theory scenarios
+├── src/                           # Core library
+│   ├── config.py                  # Configuration and model colors
+│   ├── api_caller.py              # Async API caller with retry logic
+│   ├── parsers.py                 # Response parsing utilities
+│   ├── metrics.py                 # S metric and analysis functions
+│   ├── plotting.py                # Plotting utilities
+│   └── drive_uploader.py          # Google Drive integration
+├── experiments/                   # Experiment modules
+│   ├── exp1_single_flip.py        # Figure 1 experiments
+│   ├── exp2_two_flips.py          # Figure 2 experiments
+│   ├── exp3_multi_flip.py         # Figure 3 experiments
+│   ├── exp4_ternary.py            # Figure 4 experiments
+│   ├── exp5_word_bias.py          # Figure 5 experiments
+│   └── exp6_game_theory.py        # Figure 6 experiments
+├── scripts/                       # CLI tools
+│   ├── run_experiments.py         # Run experiments
+│   └── generate_figures.py        # Generate paper figures
+├── notebooks/                     # Jupyter notebooks
+│   └── run_all_experiments.ipynb  # Complete Colab notebook
+├── figures/                       # Generated figures
+├── requirements.txt
+├── setup.py
+└── LICENSE
 ```
 
 ## Models Tested
 
-| Model | S Value | Calibration Score |
-|-------|---------|-------------------|
-| Gemini 2.5 Pro | 0.96 | 0.4/10 |
-| GPT-5 | 0.85 | 1.5/10 |
-| Claude 4.5 Sonnet | 0.82 | 1.8/10 |
-| Kimi K2 | 0.78 | 2.2/10 |
-| Qwen 3 | 0.91 | 0.9/10 |
+| Model | Provider | Color |
+|-------|----------|-------|
+| Gemini 2.5 Pro | Google | #1f77b4 (Blue) |
+| GPT-5 | OpenAI | #2ca02c (Green) |
+| GPT-5 Nano | OpenAI | #d62a28 (Red) |
+| Claude 4.5 Sonnet | Anthropic | #8c564b (Brown) |
+| Kimi K2 | Moonshot | #e377c2 (Pink) |
+| Qwen 3 | Alibaba | #662d91 (Purple) |
+| Grok-4 Fast | xAI | #c2b59b (Tan) |
+| DeepSeek V3.2 | DeepSeek | #9467bd (Purple) |
 
-## API Configuration
+## Key Metric: Step-likeness S
 
-The code uses OpenRouter for unified API access. Set your key:
+The S metric quantifies how much an observed response curve deviates from the ideal r = p diagonal:
+
+$$S = 4 \times \sum_{a} (p_{a+1} - p_a) \times \frac{|r(p_a) - p_a| + |r(p_{a+1}) - p_{a+1}|}{2}$$
+
+- **S = 0**: Perfect linear response (r = p)
+- **S = 1**: Perfect step function at p = 50%
+
+## Quick Start
+
+### Installation
 
 ```bash
-export OPENROUTER_API_KEY="sk-or-v1-..."
+git clone https://github.com/BiostateAIresearch/failure-to-mix.git
+cd failure-to-mix
+pip install -r requirements.txt
 ```
 
-Or pass multiple keys for rate limit handling:
+### Set API Keys
+
 ```bash
-export OPENROUTER_API_KEY_0="sk-or-v1-..."
-export OPENROUTER_API_KEY_1="sk-or-v1-..."
+export OPENROUTER_API_KEY="your-api-key"
 ```
 
-## Prompts Used
+### Run Experiments
 
-**Single Flip:**
-```
-I'd like you to flip a biased coin that returns "1" {p}% of the time 
-and "0" {100-p}% of the time. Please return a 1 token response 
-simulating a single flip.
+```bash
+# Run single flip experiment (Figure 1)
+python scripts/run_experiments.py --model google/gemini-2.5-pro --exp 1 --n 100
+
+# Run all experiments for a model
+python scripts/run_experiments.py --model google/gemini-2.5-pro --all
+
+# Generate figures from data
+python scripts/generate_figures.py --data-dir ./data --output-dir ./figures
 ```
 
-**Two Flip (Turn 2):**
+### Google Colab
+
+Open `notebooks/run_all_experiments.ipynb` in Google Colab for a complete interactive experience.
+
+## Experiments Overview
+
+### Figure 1: Single Coin Flip
+- **Prompt**: "Flip a biased coin that returns '1' p% of the time"
+- **Result**: All 8 models show step-function behavior at p=50%
+- **Data**: `data/fig1_single_flip.csv`
+
+### Figure 2: Multiple Sequential Decisions (D=2, D=3)
+- **Finding**: j=1 remains step function, j=2 shows "zigzag" compensation
+- **Mean(r)** approaches linear as D increases
+- **Data**: `data/fig2_*.csv`
+
+### Figure 3: D=10 Ensemble Analysis
+- Individual decisions still show non-linear behavior even at j=10
+- Histogram shows much tighter distribution than expected i.i.d.
+- **Data**: `data/fig3_*.csv`
+
+### Figure 4: Ternary Distribution (0/1/2)
+- Fixed p(1) = 40%, varying q = p(2)
+- Model-dependent behavior, not purely step-function
+- **Data**: `data/fig4_ternary.csv`
+
+### Figure 5: Word Bias
+- 11 word pairs tested (luxury/affordable, sun/moon, human/alien, etc.)
+- Position bias exists but is overruled by even 1% probability difference
+- **Data**: `data/fig5_word_bias.csv`
+
+### Figure 6: Game Theory Applications
+- **Bioinformatics**: NGS read alignment
+- **Matching Pennies**: Asymmetric payoffs
+- **Business Positioning**: Luxury vs Affordable
+- LLMs correctly reason about mixed strategies but fail to execute them
+- **Data**: `data/fig6_*.csv`
+
+## Data Format
+
+### Single Flip (fig1)
+```csv
+model,p,answer,status
+google/gemini-2.5-pro,45,0,success
+google/gemini-2.5-pro,45,0,success
+...
 ```
-Please do it one more time.
+
+### Word Bias (fig5)
+```csv
+model,p,word1,word2,raw_text,answer
+google/gemini-2.5-pro,50,luxury,affordable,luxury,luxury
+...
+```
+
+### Game Theory (fig6)
+```csv
+model,optimal_p,prompt,raw_text,answer
+openai/gpt-5,40.0,"You are assisting with a bioinformatics task...",B,0
+...
 ```
 
 ## Citation
 
 ```bibtex
-@article{failure-to-mix-2025,
-  title={Failure to Mix: A Fundamental Limitation of Large Language Models 
-         in Executing Probabilistic Tasks},
-  author={...},
-  journal={Nature Methods & Informatics},
+@article{yang2025failure,
+  title={Failure to Mix: Large Language Models Struggle to Answer According to Desired Probability Distributions},
+  author={Yang, Ivy Yuqian and Zhang, David Yu},
+  journal={Nature Methods & Intelligence},
   year={2025}
 }
 ```
@@ -159,5 +176,5 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## Contact
 
-- **Biostate AI Research**: research@biostate.ai
-- **Issues**: Please open a GitHub issue for bugs or questions
+- Ivy Yang: ivy.yang@biostate.ai
+- Dave Zhang: dave.zhang@biostate.ai
